@@ -1,51 +1,61 @@
+import streamlit as st
 import pandas as pd
 import pickle
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-# Load dataset
-df = pd.read_csv("dataset.csv")
+st.title("XGBoost Prediction App")
 
-# Handle missing values
-df.fillna(df.mean(numeric_only=True), inplace=True)
+# Upload dataset
+uploaded_file = st.file_uploader("Upload CSV Dataset", type=["csv"])
 
-# Encode categorical columns
-for col in df.select_dtypes(include="object").columns:
-    df[col] = pd.factorize(df[col])[0]
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    st.success("Dataset loaded successfully")
 
-# Change this to your actual target column name
-TARGET_COLUMN = df.columns[-1]
+    # Handle missing values
+    df.fillna(df.mean(numeric_only=True), inplace=True)
+    df.fillna(method="ffill", inplace=True)
 
-X = df.drop(TARGET_COLUMN, axis=1)
-y = df[TARGET_COLUMN]
+    # Encode categorical columns
+    for col in df.select_dtypes(include="object").columns:
+        df[col] = pd.factorize(df[col])[0]
 
-# Train-test split
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+    # Target = last column
+    target_column = df.columns[-1]
 
-# XGBoost model
-model = XGBClassifier(
-    n_estimators=100,
-    learning_rate=0.1,
-    max_depth=5,
-    random_state=42,
-    eval_metric="logloss"
-)
+    X = df.drop(target_column, axis=1)
+    y = df[target_column]
 
-# Train
-model.fit(X_train, y_train)
+    # Train-test split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
-# Predict
-y_pred = model.predict(X_test)
+    # Train model
+    model = XGBClassifier(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=5,
+        random_state=42,
+        eval_metric="logloss"
+    )
 
-# Accuracy
-accuracy = accuracy_score(y_test, y_pred)
-print(f"Model Accuracy: {accuracy * 100:.2f}%")
+    model.fit(X_train, y_train)
 
-# Save model
-with open("model.pkl", "wb") as f:
-    pickle.dump(model, f)
+    # Predict
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
 
-print("✅ Model saved as model.pkl")
+    st.write("### Model Accuracy")
+    st.success(f"{accuracy * 100:.2f}%")
+
+    # Save model
+    with open("model.pkl", "wb") as f:
+        pickle.dump(model, f)
+
+    st.success("Model trained and saved as model.pkl")
+
+else:
+    st.warning("Please upload a CSV file to continue")
